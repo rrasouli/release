@@ -1,0 +1,10 @@
+# ci-operator/config/openshift/byoh/OWNERS
+approvers:
+- jianlinliu
+- yunjiang29
+- gpei
+reviewers:
+- jianlinliu
+- yunjiang29
+- gpei
+- rrasouli

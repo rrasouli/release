@@ -1,0 +1,12 @@
+# ci-operator/config/openshift/byoh/metadata.yaml
+name: byoh-auto
+description: Windows BYOH node provisioning tool
+maintainers:
+- Windows Container team
+platforms:
+- aws
+- azure
+- gcp
+- vsphere
+- nutanix
+- none
