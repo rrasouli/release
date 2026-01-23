@@ -39,11 +39,12 @@ $(ls -la "${SHARED_DIR}" 2>&1 || echo "Directory does not exist or not accessibl
 ls -la ${CLUSTER_PROFILE_DIR}:
 $(ls -la "${CLUSTER_PROFILE_DIR}" 2>&1 || echo "Directory does not exist or not accessible")
 EOF
-echo "✓ Debug info written to ${ARTIFACT_DIR}/provision-debug-env.txt"
+echo "Debug info written to ${ARTIFACT_DIR}/provision-debug-env.txt"
 
-# Generate unique 3-digit random suffix to avoid conflicts from previous failed runs
-# Random suffix ensures each run gets unique instance names (Azure VM name limit: 15 chars)
-UNIQUE_SUFFIX=$(printf "%03d" $((RANDOM % 1000)))
+# Generate unique suffix using timestamp + random to avoid conflicts
+# Combines last 4 digits of epoch seconds with 2-digit random (max: 999999 possibilities)
+# Azure VM name limit: 15 chars, so "byoh-" (5) + 6 digits = 11 chars (safe)
+UNIQUE_SUFFIX=$(printf "%04d%02d" $(($(date +%s) % 10000)) $((RANDOM % 100)))
 export BYOH_INSTANCE_NAME="${BYOH_INSTANCE_NAME:-byoh-${UNIQUE_SUFFIX}}"
 export BYOH_NUM_WORKERS="${BYOH_NUM_WORKERS:-2}"
 export BYOH_WINDOWS_VERSION="${BYOH_WINDOWS_VERSION:-2022}"
@@ -62,7 +63,7 @@ echo "Saved instance name to ${SHARED_DIR}/byoh_instance_name.txt"
 if [[ -f "${CLUSTER_PROFILE_DIR}/ssh-publickey" ]]; then
     WINC_SSH_PUBLIC_KEY=$(cat "${CLUSTER_PROFILE_DIR}/ssh-publickey")
     export WINC_SSH_PUBLIC_KEY
-    echo "✓ SSH public key loaded from cluster profile"
+    echo "SSH public key loaded from cluster profile"
 else
     echo "ERROR: ${CLUSTER_PROFILE_DIR}/ssh-publickey not found"
     exit 1
@@ -73,7 +74,7 @@ fi
 if [[ -f "${CLUSTER_PROFILE_DIR}/.awscred" ]]; then
     export AWS_SHARED_CREDENTIALS_FILE="${CLUSTER_PROFILE_DIR}/.awscred"
     export AWS_PROFILE="default"
-    echo "✓ AWS credentials configured"
+    echo "AWS credentials configured"
 fi
 
 if [[ -f "${CLUSTER_PROFILE_DIR}/osServicePrincipal.json" ]]; then
@@ -82,13 +83,13 @@ if [[ -f "${CLUSTER_PROFILE_DIR}/osServicePrincipal.json" ]]; then
     ARM_SUBSCRIPTION_ID=$(jq -r .subscriptionId "${CLUSTER_PROFILE_DIR}/osServicePrincipal.json")
     ARM_TENANT_ID=$(jq -r .tenantId "${CLUSTER_PROFILE_DIR}/osServicePrincipal.json")
     export ARM_CLIENT_ID ARM_CLIENT_SECRET ARM_SUBSCRIPTION_ID ARM_TENANT_ID
-    echo "✓ Azure credentials configured"
+    echo "Azure credentials configured"
 fi
 
 if [[ -f "${CLUSTER_PROFILE_DIR}/gce.json" ]]; then
     GOOGLE_CREDENTIALS=$(cat "${CLUSTER_PROFILE_DIR}/gce.json")
     export GOOGLE_CREDENTIALS
-    echo "✓ GCP credentials configured"
+    echo "GCP credentials configured"
 fi
 
 # Verify terraform and byoh.sh are available (pre-installed in terraform-windows-provisioner image)
@@ -101,7 +102,7 @@ if ! command -v byoh.sh &> /dev/null; then
     exit 1
 fi
 terraform version -no-color
-echo "✓ Terraform and byoh.sh found in image"
+echo "Terraform and byoh.sh found in image"
 
 # Change to provisioner directory (scripts and configs are pre-installed in image)
 cd /usr/local/share/byoh-provisioner
@@ -110,8 +111,8 @@ echo "Provisioning ${BYOH_NUM_WORKERS} Windows ${BYOH_WINDOWS_VERSION} nodes..."
 ./byoh.sh apply "${BYOH_INSTANCE_NAME}" "${BYOH_NUM_WORKERS}" "" "${BYOH_WINDOWS_VERSION}"
 
 # Wait for BYOH nodes specifically to be Ready (identified by WMCO label)
-# Default timeout: 30 minutes (matches production flexy-templates setup: 30 loops × 60s)
-READY_TIMEOUT="${BYOH_READY_TIMEOUT:-30m}"
+# Default timeout: 45 minutes (vSphere provisioning takes longer than cloud platforms)
+READY_TIMEOUT="${BYOH_READY_TIMEOUT:-45m}"
 echo "Waiting for ${BYOH_NUM_WORKERS} BYOH Windows nodes to become Ready (timeout: ${READY_TIMEOUT})..."
 timeout "${READY_TIMEOUT}" bash -c '
     loops=0
@@ -123,20 +124,20 @@ timeout "${READY_TIMEOUT}" bash -c '
         TOTAL=$(oc get nodes -l kubernetes.io/os=windows,windowsmachineconfig.openshift.io/byoh=true --no-headers 2>/dev/null | wc -l)
         echo "[$loops/$max_loops] BYOH nodes ready: ${READY}/${TOTAL} (waiting for '${BYOH_NUM_WORKERS}')"
         if [[ "${READY}" -ge "'${BYOH_NUM_WORKERS}'" ]]; then
-            echo "✅ All ${READY} BYOH Windows nodes are Ready"
+            echo "All ${READY} BYOH Windows nodes are Ready"
             break
         fi
         ((loops++))
         sleep $sleep_seconds
     done
     if (( loops >= max_loops )); then
-        echo "❌ Timeout: Only ${READY}/'${BYOH_NUM_WORKERS}' BYOH nodes became Ready after ${max_loops} attempts"
+        echo "Timeout: Only ${READY}/'${BYOH_NUM_WORKERS}' BYOH nodes became Ready after ${max_loops} attempts"
         oc get nodes -l kubernetes.io/os=windows,windowsmachineconfig.openshift.io/byoh=true -o wide || true
         exit 1
     fi
 '
 
-echo "✓ Windows BYOH nodes provisioned successfully"
+echo "Windows BYOH nodes provisioned successfully"
 echo "All Windows nodes in cluster:"
 oc get nodes -l kubernetes.io/os=windows -o wide
 echo ""
@@ -177,24 +178,29 @@ esac
 
 # Write instance files in WMCO BYOH format
 # Format: ${SHARED_DIR}/<ip>_windows_instance.txt containing "username: <username>"
-for ip in ${INSTANCE_IPS}; do
+# Read into array to handle empty values and special characters properly
+IFS=' ' read -r -a IP_ARRAY <<< "${INSTANCE_IPS}"
+for ip in "${IP_ARRAY[@]}"; do
+    [[ -z "$ip" ]] && continue  # Skip empty values
     instance_file="${SHARED_DIR}/${ip}_windows_instance.txt"
     cat > "${instance_file}" <<EOF
 username: ${USERNAME}
 EOF
-    echo "✓ Created instance file: ${instance_file}"
+    echo "Created instance file: ${instance_file}"
 done
 
-echo "✓ Instance information exported for WMCO BYOH tests"
+echo "Instance information exported for WMCO BYOH tests"
 
-# Save terraform state to SHARED_DIR for destroy step
-# SHARED_DIR shares files, not subfolders - use tarball
-echo "Saving terraform state to SHARED_DIR for destroy step..."
-if [[ -d "${ARTIFACT_DIR}/terraform_byoh" ]]; then
-    tar -czf "${SHARED_DIR}/terraform_byoh_state.tar.gz" -C "${ARTIFACT_DIR}" terraform_byoh/
-    echo "✓ Terraform state saved to ${SHARED_DIR}/terraform_byoh_state.tar.gz"
+# Save terraform state + config to SHARED_DIR for destroy step
+# Tar directory excluding .terraform/ (providers) to avoid 3MB Secret limit
+echo "Saving terraform state and config to SHARED_DIR for destroy step..."
+PLATFORM=$(oc get infrastructure cluster -o=jsonpath="{.status.platformStatus.type}" | tr '[:upper:]' '[:lower:]')
+if [[ -d "${ARTIFACT_DIR}/terraform_byoh/${PLATFORM}" ]]; then
+    tar -cf "${SHARED_DIR}/terraform_byoh_${PLATFORM}.tar" -C "${ARTIFACT_DIR}/terraform_byoh/${PLATFORM}" --exclude='.terraform' .
+    echo "Terraform files saved to ${SHARED_DIR}/terraform_byoh_${PLATFORM}.tar"
+    ls -lh "${SHARED_DIR}/terraform_byoh_${PLATFORM}.tar"
 else
-    echo "WARNING: Terraform state directory not found at ${ARTIFACT_DIR}/terraform_byoh/"
+    echo "WARNING: Terraform directory not found at ${ARTIFACT_DIR}/terraform_byoh/${PLATFORM}/"
 fi
 
 echo "=== Windows BYOH Provisioning Complete ==="

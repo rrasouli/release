@@ -21,8 +21,8 @@ ref:
 
     This step:
     1. Uses pre-built terraform-windows-provisioner image (ci/terraform-windows-provisioner:latest)
-    2. Accesses Terraform state from ${ARTIFACT_DIR}/terraform_byoh/ (created by provision step)
-    3. Runs byoh.sh destroy to clean up resources using Terraform
+    2. Extracts terraform tarball from ${SHARED_DIR}/terraform_byoh_<platform>.tar to ${ARTIFACT_DIR}/terraform_byoh/
+    3. Runs terraform init + terraform destroy to clean up resources
 
-    Note: ARTIFACT_DIR is used for terraform state persistence because SHARED_DIR points to
-    the cluster-profile secret mount which is not shared between steps.
+    Note: Provision step tars terraform state/config (excluding .terraform/) and saves to SHARED_DIR.
+    Destroy step extracts tarball to ARTIFACT_DIR, runs terraform init to download providers, then destroy.

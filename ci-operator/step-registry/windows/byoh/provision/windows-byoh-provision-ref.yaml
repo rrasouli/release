@@ -20,8 +20,8 @@ ref:
       default: "2022"
       documentation: "Windows Server version (2019 or 2022)"
     - name: WINC_ADMIN_PASSWORD
-      default: "P@ssw0rd123!@#"
-      documentation: "Windows administrator password"
+      default: ""
+      documentation: "Windows administrator password (auto-generated if not provided)"
     - name: NUTANIX_WINDOWS_IMAGE
       default: "nutanix-windows-server"
       documentation: "Nutanix golden image name for Windows (Prow CI uses nutanix-windows-server)"

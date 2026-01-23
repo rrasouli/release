@@ -1,10 +1,7 @@
 chain:
   as: cucushift-installer-rehearse-nutanix-ipi-ovn-winc-deprovision
   steps:
-  - chain: gather
-  - ref: windows-byoh-destroy
-  - ref: ipi-deprovision-deprovision
-  - ref: ipi-deprovision-nutanix-dns
+  - chain: cucushift-installer-rehearse-nutanix-ipi-deprovision
   - ref: nutanix-deprovision-bastionhost
   documentation: |-
-    Deprovision the IPI cluster on Nutanix. Gathers diagnostics, destroys Windows BYOH nodes, then tears down cluster infrastructure and bastion host.
+    Destroy an IPI cluster with bastion host on Nutanix.
