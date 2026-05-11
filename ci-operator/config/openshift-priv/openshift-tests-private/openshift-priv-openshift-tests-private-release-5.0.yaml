@@ -205,6 +205,7 @@ tests:
       TEST_FILTERS: ~ChkUpgrade&;~ConnectedOnly&;~Disruptive&;~Serial&;Smokerun&
       TEST_SCENARIOS: Windows_Containers
       TEST_TIMEOUT: "50"
+      WINDOWS_OS_ID: Windows_Server-2025-English-Core-Base
     test:
     - ref: openshift-extended-test
     workflow: cucushift-installer-rehearse-aws-ipi-ovn-winc
@@ -218,6 +219,7 @@ tests:
       TEST_FILTERS: ~ChkUpgrade&;~ConnectedOnly&;~Disruptive&;~Serial&;Smokerun&
       TEST_SCENARIOS: Windows_Containers
       TEST_TIMEOUT: "50"
+      WINDOWS_OS_ID: projects/windows-cloud/global/images/family/windows-2025-core
     test:
     - ref: openshift-extended-test
     workflow: cucushift-installer-rehearse-gcp-ipi-ovn-winc
@@ -269,6 +271,7 @@ tests:
     cluster_profile: aws-qe
     env:
       BASE_DOMAIN: qe.devcluster.openshift.com
+      BYOH_WINDOWS_VERSION: "2025"
       FORCE_SUCCESS_EXIT: "no"
       TEST_FILTERS: ~ChkUpgrade&;~ConnectedOnly&;~Disruptive&;~Serial&;Smokerun&
       TEST_SCENARIOS: Windows_Containers

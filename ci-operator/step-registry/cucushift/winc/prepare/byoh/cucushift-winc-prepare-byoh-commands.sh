@@ -34,9 +34,8 @@ function setup_image_mirroring()
 
   # Create ImageTagMirrorSet to redirect Windows images to mirror
   # Includes PowerShell containers and CSI driver images for storage tests
-  # PowerShell: Server 2019 (1809), Server 2022 (ltsc2022)
+  # PowerShell: Server 2022 (ltsc2022), Server 2025 (ltsc2022 until Microsoft publishes ltsc2025)
   # CSI: Azure File and vSphere drivers for OCP-66352
-  # TODO: Remove Server 2019 support after AMI/image upgrades to Server 2022
   cat <<EOF | oc create -f -
 apiVersion: config.openshift.io/v1
 kind: ImageTagMirrorSet
@@ -244,11 +243,8 @@ fi
 # installed on the Windows workers
 os_version=$(oc get nodes -l 'kubernetes.io/os=windows' -o=jsonpath="{.items[0].status.nodeInfo.osImage}")
 
+# Server 2022 and 2025 both use ltsc2022 until Microsoft publishes lts-nanoserver-ltsc2025
 windows_container_image="mcr.microsoft.com/powershell:lts-nanoserver-ltsc2022"
-if [[ "$os_version" == *"2019"* ]]
-then
-    windows_container_image="mcr.microsoft.com/powershell:lts-nanoserver-1809"
-fi
 
 echo "Windows OS version: ${os_version}"
 echo "Windows OS image ID: ${windows_os_image_id}"
