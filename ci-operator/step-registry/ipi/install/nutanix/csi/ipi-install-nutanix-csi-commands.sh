@@ -17,6 +17,8 @@ fi
 
 source ${SHARED_DIR}/nutanix_context.sh
 
+echo "DEBUG: PE_STORAGE_CONTAINER=${PE_STORAGE_CONTAINER}"
+
 echo "$(date -u --rfc-3339=seconds) - Creating CSI manifests..."
 
 cat > "${SHARED_DIR}/manifest_0000-nutanix-csi-openshift-cluster-csi-drivers-namespace.yaml" << EOF

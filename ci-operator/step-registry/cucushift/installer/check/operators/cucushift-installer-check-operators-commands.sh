@@ -97,6 +97,26 @@ function check_clusteroperators() {
         (( tmp_ret += 1 ))
     fi
 
+    if (( tmp_ret > 0 )); then
+        echo "DEBUG: PVC status across cluster:"
+        oc get pvc -A 2>/dev/null || true
+        echo "DEBUG: StorageClass configuration:"
+        oc get sc -o yaml 2>/dev/null || true
+        echo "DEBUG: CSI driver pods:"
+        oc get pods -n openshift-cluster-csi-drivers 2>/dev/null || true
+        echo "DEBUG: CSI controller pod logs:"
+        for pod in $(oc get pods -n openshift-cluster-csi-drivers -l app=nutanix-csi-controller -o name 2>/dev/null); do
+            echo "DEBUG: Logs for ${pod}:"
+            oc logs -n openshift-cluster-csi-drivers "${pod}" --all-containers --tail=50 2>/dev/null || true
+        done
+        echo "DEBUG: CSI driver events:"
+        oc get events -n openshift-cluster-csi-drivers --sort-by='.lastTimestamp' 2>/dev/null | tail -30 || true
+        echo "DEBUG: PVC events in openshift-image-registry:"
+        oc get events -n openshift-image-registry --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
+        echo "DEBUG: PVC events in openshift-monitoring:"
+        oc get events -n openshift-monitoring --sort-by='.lastTimestamp' 2>/dev/null | tail -20 || true
+    fi
+
     return $tmp_ret
 }
 
